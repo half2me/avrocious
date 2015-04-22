@@ -46,6 +46,8 @@
 .def masodperc = r20
 .def tick = r21
 .def cnt = r22;
+.def tim0delay = r23;
+.def tim1delay = r24;
 
 ;***************************************************************
 ;* Reset & Interrupt Vectors
@@ -222,50 +224,88 @@ jmp RECORD_MODE
 jmp MAIN_LOOP
 
 
-; *************** RECORD MODE ***************
-RECORD_MODE:
-	ldi cnt, 0;
-RECORD_MODE_DELAY:
-	inc cnt;
-	cpi cnt, 0xFF;
-	brne RECORD_MODE_DELAY
-	; TIMER RESET
-	; Init Input timer
-	; Init LED timer
-	; Start LED timer
-	; Enable BTN interrupts
-	RECORD_MODE_CYCLE:
-	lds cnt, PinG
-	andi cnt, 0x01
-	sbrs cnt, 0
-	jmp REPLAY_MOD
-	jmp RECORD_MODE_CYCLE
 
-; **************** REPLAY MOD ***************
-REPLAY_MODE:
-	ldi cnt, 0
-REPLAY_MODE_DELAY:
-	inc cnt
-	cpi cnt, 0xFF
-	brne REPLAY_MODE_DELAY
-	; Disable BTN interrupts
-	; TIMER RESET
-	; Init Replay timer
-	; Start Replay timer
-REPLAY_MODE_CYCLE:
-	lds cnt, PinG
-	andi cnt, 0x01
-	sbrc cnt, 0
-	jmp MINTAVETELI_MOD
-	jmp VISSZAJATSZASI_MOD_CYCLE
 
-; ********* Button Interrupt Handler ********
-BTN_IT:
-	; Start Input Timer
-	; Disable BTN Interrupts
-	; Read state of BTNs
-	; Save pressed BTNs to SRAM
-	reti
+; -------------------------------------------------------------
+; -                             RECORD MODE                   -
+; -------------------------------------------------------------
+RECORD_MODE:                  ; -------------------------------
+	ldi cnt, 0                  ; Give time for bouncing switches
+RECORD_MODE_DELAY:            ;     <-------\
+	inc cnt                     ;     | DELAY |
+	cpi cnt, 0xFF               ;     ------->/
+	brne RECORD_MODE_DELAY      ; -------------------------------
+	ldi tim0delay, 25           ; Input Timer init (stopped)
+	ldi temp, 107               ; (11MHz/1024/107/25) ~= 4Hz
+	out OCR0, temp              ;                     ~= 250ms
+	ldi temp, 0b00001000        ;
+	out TCCR0, temp             ;
+	ldi temp, 0b00000010        ;
+	out TIMSK, temp             ; -------------------------------
+	ldi tim1delay, 25           ; LED Timer init / START
+	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
+	out OCR0, temp              ;                     ~= 500ms
+	ldi temp, 0b00001111        ;
+	out TCCR0, temp             ;
+	ldi temp, 0b00000010        ;
+	out TIMSK, temp             ; -------------------------------
+	ldi temp, 0xF0              ; Enable Button Interrupts
+	out EIMSK, temp             ;
+	RECORD_MODE_CYCLE:          ; -------------------------------
+	lds cnt, PinG               ; Read switch for mode change
+	andi cnt, 0x01              ;
+	sbrs cnt, 0                 ;
+	jmp REPLAY_MOD              ;
+	jmp RECORD_MODE_CYCLE       ; -------------------------------
+; -------------------------------------------------------------
+; -------------------------------------------------------------
+
+
+
+; -------------------------------------------------------------
+; -                             REPLAY MODE                   -
+; -------------------------------------------------------------
+REPLAY_MODE:                  ; -------------------------------
+	ldi cnt, 0                  ; Give time for bouncing switches
+REPLAY_MODE_DELAY:            ;     <-------\
+	inc cnt                     ;     | DELAY |
+	cpi cnt, 0xFF               ;     ------->/
+	brne REPLAY_MODE_DELAY      ; -------------------------------
+	ldi temp, 0x00              ; Disable Button Interrupts
+	out EIMSK, temp             ; -------------------------------
+	ldi tim1delay, 50           ; Replay Timer init / START
+	; Read X from pot           ; (11MHz/1024/214/50)*X ~= X Hz
+	; Divide tim1delay with pot ;
+	ldi temp, 214               ;    (X is read from Pot)
+	out OCR1, temp              ;
+	ldi temp, 0b00001111        ;
+	out TCCR1, temp             ;
+	ldi temp, 0b00000010        ;
+	out TIMSK, temp             ;
+REPLAY_MODE_CYCLE:            ; -------------------------------
+	lds cnt, PinG               ; Read switch for mode change
+	andi cnt, 0x01              ;
+	sbrc cnt, 0                 ;
+	jmp RECORD_MODE             ;
+	jmp REPLAY_MODE_CYCLE       ; -------------------------------
+; -------------------------------------------------------------
+; -------------------------------------------------------------
+
+
+
+; -------------------------------------------------------------
+; -                             Button Interrupt Handler      -
+; -------------------------------------------------------------
+BTN_IT:                       ; -------------------------------
+	ldi temp, 0b00001000        ; Start the Input Timer
+	out TCCR0, temp             ; -------------------------------
+	ldi temp, 0x00              ; Disable Button Interrupts
+	out EIMSK, temp             ; -------------------------------
+	; Read state of BTNs        ; Read buttons and save to SRAM
+	; Save pressed BTNs to SRAM ; -------------------------------
+	reti                        ; -------------------------------
+; -------------------------------------------------------------
+; -------------------------------------------------------------
 
 ; ********* Input Timer Interrupt Handler ***
 INPUT_TIMER_IT:
