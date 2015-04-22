@@ -2,8 +2,8 @@
 ;* Feladat: 
 ;* Rövid leírás:
 ; 
-;* Szerzõk: 
-;* Mérõcsoport: <merocsoport jele>
+;* Szerzok: 
+;* Mérocsoport: <merocsoport jele>
 ;
 ;***************************************************************
 ;* "AVR ExperimentBoard" port assignment information:
@@ -45,7 +45,7 @@
 .def szamlal = r19
 .def masodperc = r20
 .def tick = r21
-.def pressing = r22
+.def cnt = r22;
 
 ;*************************************************************** 
 ;* Reset & Interrupt Vectors  
@@ -57,16 +57,16 @@
 	jmp DUMMY_IT	; Ext. INT2 Handler
 	jmp DUMMY_IT	; Ext. INT3 Handler
 	jmp DUMMY_IT	; Ext. INT4 Handler (INT gomb)
-	jmp DUMMY_IT	; Ext. INT5 Handler
-	jmp DUMMY_IT	; Ext. INT6 Handler
-	jmp DUMMY_IT	; Ext. INT7 Handler
+	jmp DUMMY_IT	; Ext. INT5 Handler (BTN0)
+	jmp DUMMY_IT	; Ext. INT6 Handler (BTN1)
+	jmp DUMMY_IT	; Ext. INT7 Handler (BTN2)
 	jmp DUMMY_IT	; Timer2 Compare Match Handler 
 	jmp DUMMY_IT	; Timer2 Overflow Handler 
 	jmp DUMMY_IT	; Timer1 Capture Event Handler 
 	jmp DUMMY_IT	; Timer1 Compare Match A Handler 
 	jmp DUMMY_IT	; Timer1 Compare Match B Handler 
 	jmp DUMMY_IT	; Timer1 Overflow Handler 
-	jmp TIMER_IT	; Timer0 Compare Match Handler 
+	jmp DUMMY_IT	; Timer0 Compare Match Handler 
 	jmp DUMMY_IT	; Timer0 Overflow Handler 
 	jmp DUMMY_IT	; SPI Transfer Complete Handler 
 	jmp DUMMY_IT	; USART0 RX Complete Handler 
@@ -93,7 +93,7 @@
 ;* DUMMY_IT interrupt handler -- CPU hangup with LED pattern
 ;* (This way unhandled interrupts will be noticed)
 
-;< többi IT kezelõ a fájl végére! >
+;< többi IT kezelo a fájl végére! >
 
 DUMMY_IT:	
 	ldi r16,   0xFF ; LED pattern:  *-
@@ -103,7 +103,7 @@ DUMMY_IT:
 DUMMY_LOOP:
 	rjmp DUMMY_LOOP ; endless loop
 
-;< többi IT kezelõ a fájl végére! >
+;< többi IT kezelo a fájl végére! >
 
 ;*************************************************************** 
 ;* MAIN program, Initialisation part
@@ -128,6 +128,7 @@ M_INIT:
 ; BTN-k inicializálása (DDR esetén 0-val inicializáljuk bemenetként!)
 	ldi temp, 0x00	; BTN3 engedélyezése bemenetként
 	out DDRB, temp
+	out DDRG, temp
 	ldi temp, 0x80
 	out PORTB, temp
 	ldi temp, 0x00	; BTN0, BTN1, BTN2, IT engedényezése bemenetként
@@ -142,7 +143,7 @@ M_INIT:
 ;******** Timer inicializálása *******
 	ldi temp, 107						; komparálandó érték (0…107 = 108)
 	out OCR0, temp
-	ldi temp, 0b00001111 				; TCCR0: CTC mód, 1024-es elõosztó
+	ldi temp, 0b00001111 				; TCCR0: CTC mód, 1024-es eloosztó
 										; 0.00.... ; FOC=0 COM=00 (kimenet tiltva)
 										; .0..1... ; WGM=10 (CTC mód)
 										; .....111 ; CS0=111 (CLK/1024)
@@ -165,9 +166,9 @@ M_INIT:
  
 M_LOOP: 
 
-;< fõciklus >
+;< fociklus >
 
-
+/*
 	in temp, PinE	 ; BTN0
 	andi temp, 0x20
 	sbrc temp, 5	 ; Skip if Bit in Reg. Cleared
@@ -201,20 +202,58 @@ CHANGE:
 	
 
 TIMER_IT:
-	push temp 			; sem temp-et, sem SREG-et nem használja M_LOOP,
-	in temp, SREG 		; így nem lenne szükséges menteni
-	push temp
+	push temp 			;
+	in temp, SREG 		;
+	push temp           ;
 	dec szamlal			; csökkentjük a századmásodpercek számát
 	brne NEM_JART_LE 	; ha nem érte el 0-t, kilépünk
-	ldi tick, 1 		; különben jelezzük a fõprogramnak
+	ldi tick, 1 		; különben jelezzük a foprogramnak
 	ldi szamlal, 25 	; és újrakezdjük a számlálás
 
 
 NEM_JART_LE:
 	pop temp
 	out SREG, temp
-	pop temp			 ; visszatöltjük SREG-et és temp-et a verembõl
+	pop temp			 ; visszatöltjük SREG-et és temp-et a verembol
 	reti
+	*/
 
 ;*************************************************************** 
 ;* Subroutines, Interrupt routines
+
+
+; **************************************************************
+
+
+jmp MINTAVETELI_MOD
+jmp MAIN_LOOP
+
+
+; **************** MINTAVÉTELI MÓD *****************************
+MINTAVETELI_MOD:
+	ldi cnt, 0;
+	MINTAVETELI_MOD_DELAY:
+		inc cnt;
+		cpi cnt, 0xFF;
+		brne MINTAVETELI_MOD_DELAY
+	MINTAVETELI_MOD_CYCLE:
+		; kód majd ide
+		lds cnt, PinG
+		andi cnt, 0x01
+		sbrs cnt, 0
+		jmp VISSZAJATSZAS_MOD
+		jmp MINTAVETELI_MOD_CYCLE
+
+VISSZAJATSZAS_MOD:
+	ldi cnt, 0
+	VISSZAJATSZAS_MOD_DELAY:
+		inc cnt
+		cpi cnt, 0xFF
+		brne VISSZAJATSZASI_MOD_DELAY
+	VISSZAJATSZASI_MOD_CYCLE:
+		; kód majd ide
+		lds cnt, PinG
+		andi cnt, 0x01
+		sbrc cnt, 0
+		jmp MINTAVETELI_MOD
+		jmp VISSZAJATSZASI_MOD_CYCLE
