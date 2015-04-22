@@ -39,36 +39,36 @@
 ;* Program Constants
 .equ const =$00 ; Generic Constant Structure example
 ;* Program Variables Definitions
-.def temp = r16 ; Temporary Register example
-.def buttonsbits = r17
-.def temp1 = r18
-.def szamlal = r19
-.def masodperc = r20
-.def tick = r21
-.def cnt = r22;
-.def tim0delay = r23;
-.def tim1delay = r24;
+.def temp      = r16
+.def temp2     = r17
+.def temp1     = r18
+.def sramcnt   = r19
+.def temp4     = r20
+.def temp5     = r21
+.def cnt       = r22
+.def tim0delay = r23
+.def tim1delay = r24
 
 ;***************************************************************
 ;* Reset & Interrupt Vectors
 .cseg
-.org $0000 ; Define start of Code segment
-	jmp RESET ; Reset Handler, jmp is 2 word instruction
+.org $0000      ; Define start of Code segment
+	jmp RESET     ; Reset Handler, jmp is 2 word instruction
 	jmp DUMMY_IT	; Ext. INT0 Handler
 	jmp DUMMY_IT	; Ext. INT1 Handler
 	jmp DUMMY_IT	; Ext. INT2 Handler
 	jmp DUMMY_IT	; Ext. INT3 Handler
-	jmp DUMMY_IT	; Ext. INT4 Handler (INT gomb)
-	jmp DUMMY_IT	; Ext. INT5 Handler (BTN0)
-	jmp DUMMY_IT	; Ext. INT6 Handler (BTN1)
-	jmp DUMMY_IT	; Ext. INT7 Handler (BTN2)
+	jmp BTN_IT	  ; Ext. INT4 Handler (INT gomb)
+	jmp BTN_IT    ; Ext. INT5 Handler (BTN0)
+	jmp BTN_IT    ; Ext. INT6 Handler (BTN1)
+	jmp BTN_IT    ; Ext. INT7 Handler (BTN2)
 	jmp DUMMY_IT	; Timer2 Compare Match Handler
 	jmp DUMMY_IT	; Timer2 Overflow Handler
 	jmp DUMMY_IT	; Timer1 Capture Event Handler
-	jmp DUMMY_IT	; Timer1 Compare Match A Handler
+	jmp TIMER1_IT	; Timer1 Compare Match A Handler
 	jmp DUMMY_IT	; Timer1 Compare Match B Handler
 	jmp DUMMY_IT	; Timer1 Overflow Handler
-	jmp DUMMY_IT	; Timer0 Compare Match Handler
+	jmp INPUT_TIMER_IT	; Timer0 Compare Match Handler
 	jmp DUMMY_IT	; Timer0 Overflow Handler
 	jmp DUMMY_IT	; SPI Transfer Complete Handler
 	jmp DUMMY_IT	; USART0 RX Complete Handler
@@ -119,47 +119,29 @@ RESET:
 	out SPH, temp
 
 M_INIT:
-;< ki- �s bemenetek inicializ�l�sa stb >
 
 ; LED-ek inicializ�l�sa
 	ldi temp, 0xFF
-	out DDRC, temp ; �sszes LED kimenet
-	ldi temp, 0x01
-	out PORTC, temp ; �sszes LED off
+	out DDRC, temp      ; �sszes LED kimenet
+	ldi temp, 0x00
+	out PORTC, temp     ; �sszes LED off
 
 ; BTN-k inicializ�l�sa (DDR eset�n 0-val inicializ�ljuk bemenetk�nt!)
-	ldi temp, 0x00	; BTN3 enged�lyez�se bemenetk�nt
-	out DDRB, temp
-	out DDRG, temp
-	ldi temp, 0x80
-	out PORTB, temp
-	ldi temp, 0x00	; BTN0, BTN1, BTN2, IT enged�nyez�se bemenetk�nt
-	out DDRE, temp
+	ldi temp, 0x00
+	out DDRG, temp      ; SW bemenetre allitas
+	out DDRE, temp      ; BTN0, BTN1, BTN2, IT enged�nyez�se bemenetk�nt
 	ldi temp, 0xF0
 	out PORTE, temp
 
-; buttonsbits inicializ�l�sa
-	ldi buttonsbits, 0x00
+; poti beallitasa
+	ldi temp, 0b01100011 ; hasznaljuk a potit
+	out ADMUX, temp
+	ldi temp, 0b11100111 ; poti config
+	ADCSRA, temp
 
+	; SRAM
+	ldi sramcnt, 0
 
-;******** Timer inicializ�l�sa *******
-	ldi temp, 107						; kompar�land� �rt�k (0�107 = 108)
-	out OCR0, temp
-	ldi temp, 0b00001111 				; TCCR0: CTC m�d, 1024-es elooszt�
-										; 0.00.... ; FOC=0 COM=00 (kimenet tiltva)
-										; .0..1... ; WGM=10 (CTC m�d)
-										; .....111 ; CS0=111 (CLK/1024)
-	out TCCR0, temp
-	ldi temp, 0b00000010				; TIMSK: Output Compare Match IT enged�lyez�s
-										; ......1. ; OCIE0=1: ha TCNT0 == OCR0, akkor IT
-										; .......0 ; TOIE0=0 (nincs IT t�lcsordul�s eset�n)
-	out TIMSK, temp
-	ldi temp, 0xFF
-	out DDRC, temp
-;********** sz�ml�l�k be�ll�t�sa **********
-	ldi szamlal, 25
-	ldi tick, 0
-	ldi masodperc, 0
 	sei 								; glob�lis IT enged�lyezve
 
 
@@ -167,61 +149,8 @@ M_INIT:
 ;* MAIN program, Endless loop part
 
 M_LOOP:
-
-;< fociklus >
-
-/*
-	in temp, PinE	 ; BTN0
-	andi temp, 0x20
-	sbrc temp, 5	 ; Skip if Bit in Reg. Cleared
-	call CHANGE
-
-	in temp, PinE	 ; BTN1
-	andi temp, 0x40
-	sbrc temp, 6	 ; Skip if Bit in Reg. Cleared
-	call CHANGE
-
-	in temp, PinE	 ; BTN2
-	andi temp, 0x80
-	sbrc temp, 7	 ; Skip if Bit in Reg. Cleared
-	call CHANGE
-
-	in temp, PinB	 ; BTN3
-	andi temp, 0x80
-	sbrc temp, 7	 ; Skip if Bit in Reg. Cleared
-	call CHANGE
-
-	in temp, PinE	 ; IT
-	andi temp, 0x10
-	call CHANGE
-
-	jmp M_LOOP ; Endless Loop
-
-
-CHANGE:
-	or buttonsbits, temp
-	ret
-
-
-TIMER_IT:
-	push temp 			;
-	in temp, SREG 		;
-	push temp           ;
-	dec szamlal			; cs�kkentj�k a sz�zadm�sodpercek sz�m�t
-	brne NEM_JART_LE 	; ha nem �rte el 0-t, kil�p�nk
-	ldi tick, 1 		; k�l�nben jelezz�k a foprogramnak
-	ldi szamlal, 25 	; �s �jrakezdj�k a sz�ml�l�s
-
-
-NEM_JART_LE:
-	pop temp
-	out SREG, temp
-	pop temp			 ; visszat�ltj�k SREG-et �s temp-et a verembol
-	reti
-	*/
-
-jmp RECORD_MODE
-jmp MAIN_LOOP
+	jmp RECORD_MODE
+	jmp MAIN_LOOP
 
 
 
@@ -273,10 +202,8 @@ REPLAY_MODE_DELAY:            ;     <-------\
 	brne REPLAY_MODE_DELAY      ; -------------------------------
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
-	ldi tim1delay, 50           ; Replay Timer init / START
-	; Read X from pot           ; (11MHz/1024/214/50)*X ~= X Hz
-	; Divide tim1delay with pot ;
-	ldi temp, 214               ;    (X is read from Pot)
+	in tim1delay, ADCH          ; Replay Timer init / START
+	ldi temp, 214               ;
 	out OCR1, temp              ;
 	ldi temp, 0b00001111        ;
 	out TCCR1, temp             ;
@@ -297,30 +224,100 @@ REPLAY_MODE_CYCLE:            ; -------------------------------
 ; -                             Button Interrupt Handler      -
 ; -------------------------------------------------------------
 BTN_IT:                       ; -------------------------------
-	ldi temp, 0b00001000        ; Start the Input Timer
+	push temp                   ;
+	in temp, SREG               ;
+	push temp                   ;
+	ldi temp, 0b00001111        ; Start the Input Timer
 	out TCCR0, temp             ; -------------------------------
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
-	; Read state of BTNs        ; Read buttons and save to SRAM
-	; Save pressed BTNs to SRAM ; -------------------------------
+	in temp, PinE               ; Read buttons and save to SRAM
+	andi PinE, 0xF0             ;
+	 ;
+	;                           ; -------------------------------
+	pop temp                    ;
+	out SREG, temp              ;
+	pop temp                    ;
 	reti                        ; -------------------------------
 ; -------------------------------------------------------------
 ; -------------------------------------------------------------
 
-; ********* Input Timer Interrupt Handler ***
-INPUT_TIMER_IT:
-	; Enable BTN Interrupts
-	reti
+
+
+; -------------------------------------------------------------
+; -                            Input Timer Interrupt Handler  -
+; -------------------------------------------------------------
+INPUT_TIMER_IT:               ; -------------------------------
+	push temp                   ;
+	in temp, SREG               ;
+	push temp                   ;
+	dec tim0delay               ;
+	cpi tim0delay, 0            ;
+	breq INPUT_TIMER_IT_BR      ;
+	pop temp                    ;
+	out SREG, temp              ;
+	pop                         ;
+	reti                        ;
+INPUT_TIMER_IT_BR:            ; -------------------------------
+  ldi temp, 0b00001000        ; Stop the Input Timer
+	out TCCR0, temp             ;
+	ldi tim0delay, 25           ; Reset counter delay
+	ldi temp, 0xF0              ; Enable Button Interrupts
+	pop temp                    ; -------------------------------
+	out SREG, temp              ;
+	pop                         ;
+	reti                        ; -------------------------------
+; -------------------------------------------------------------
+; -------------------------------------------------------------
+
 
 ; ********* Led Timer Interrupt Handler *****
-LED_TIMER_IT:
-	; Negate LED value
-	; Restart LED Timer
-	reti
+LED_TIMER:
+	in temp, PinC
+	not temp
+	andi temp, 0xF0
+	out PortC
+	ldi tim1delay, 25           ; LED Timer init / START
+	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
+	out OCR0, temp              ;                     ~= 500ms
+	ldi temp, 0b00001111        ;
+	out TCCR0, temp             ;
+	ret
+
 ; ********* Replay Timer Interrupt Handler **
-REPLAY_TIMER_IT:
+REPLAY_TIMER:
 	; Set LED value from SRAM
-	; Read pot value
-	; Init Replay timer with pot value
-	; Start Replay timer
-	reti
+	in tim1delay, ADCH          ; Replay Timer init / START
+	ldi temp, 214               ;
+	out OCR1, temp              ;
+	ldi temp, 0b00001111        ;
+	out TCCR1, temp             ;
+	ret
+
+
+; -------------------------------------------------------------
+; -                            Timer1 Interrupt Handler       -
+; -------------------------------------------------------------
+TIMER1_IT:                    ; -------------------------------
+	push temp                   ;
+	in temp, SREG               ;
+	push temp                   ;
+	dec tim1delay               ;
+	cpi tim1delay, 0            ;
+	breq TIMER1_IT_BR           ;
+	pop temp                    ;
+	out SREG, temp              ;
+	pop                         ;
+	reti                        ;
+TIMER1_IT_BR:                 ; -------------------------------
+	lds cnt, PinG               ; Read switch for mode
+	andi cnt, 0x01              ;
+	sbrc cnt, 0                 ;
+	call LED_TIMER              ; INT from RECORD MODE
+	call REPLAY_TIMER           ; INT from REPLAY MODE
+	pop temp                    ;
+	out SREG, temp              ;
+	pop temp                    ;
+	reti                        ; -------------------------------
+; -------------------------------------------------------------
+; -------------------------------------------------------------
