@@ -128,16 +128,18 @@ M_INIT:
 
 ; BTN-k inicializ�l�sa (DDR eset�n 0-val inicializ�ljuk bemenetk�nt!)
 	ldi temp, 0x00
-	out DDRG, temp      ; SW bemenetre allitas
+	sts DDRG, temp      ; SW bemenetre allitas
 	out DDRE, temp      ; BTN0, BTN1, BTN2, IT enged�nyez�se bemenetk�nt
 	ldi temp, 0xF0
 	out PORTE, temp
+	ldi temp, 0x01
+	out PORTG, temp
 
 ; poti beallitasa
 	ldi temp, 0b01100011 ; hasznaljuk a potit
 	out ADMUX, temp
 	ldi temp, 0b11100111 ; poti config
-	ADCSRA, temp
+	out ADCSRA, temp
 
 ; SRAM
 	ldi XL, LOW(SRAM_START) ; X regiszter alsó byte-ja
@@ -153,7 +155,7 @@ M_INIT:
 
 M_LOOP:
 	jmp RECORD_MODE
-	jmp MAIN_LOOP
+	jmp M_LOOP
 
 
 
@@ -189,7 +191,7 @@ RECORD_MODE_DELAY:            ;     <-------\
 	lds cnt, PinG               ; Read switch for mode change
 	andi cnt, 0x01              ;
 	sbrs cnt, 0                 ;
-	jmp REPLAY_MOD              ;
+	jmp REPLAY_MODE             ;
 	jmp RECORD_MODE_CYCLE       ; -------------------------------
 ; -------------------------------------------------------------
 ; -------------------------------------------------------------
@@ -209,9 +211,9 @@ REPLAY_MODE_DELAY:            ;     <-------\
 	out EIMSK, temp             ; -------------------------------
 	in tim1delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
-	out OCR1, temp              ;
+	out OCR2, temp              ;
 	ldi temp, 0b00001111        ;
-	out TCCR1, temp             ;
+	out TCCR2, temp             ;
 	ldi temp, 0b00000010        ;
 	out TIMSK, temp             ;
 REPLAY_MODE_CYCLE:            ; -------------------------------
@@ -265,7 +267,7 @@ INPUT_TIMER_IT:               ; -------------------------------
 	breq INPUT_TIMER_IT_BR      ;
 	pop temp                    ;
 	out SREG, temp              ;
-	pop                         ;
+	pop temp                    ;
 	reti                        ;
 INPUT_TIMER_IT_BR:            ; -------------------------------
   ldi temp, 0b00001000        ; Stop the Input Timer
@@ -274,7 +276,7 @@ INPUT_TIMER_IT_BR:            ; -------------------------------
 	ldi temp, 0xF0              ; Enable Button Interrupts
 	pop temp                    ; -------------------------------
 	out SREG, temp              ;
-	pop                         ;
+	pop temp                    ;
 	reti                        ; -------------------------------
 ; -------------------------------------------------------------
 ; -------------------------------------------------------------
@@ -283,7 +285,7 @@ INPUT_TIMER_IT_BR:            ; -------------------------------
 ; ********* Led Timer Interrupt Handler *****
 LED_TIMER:
 	in temp, PinC
-	not temp
+	com temp
 	andi temp, 0xF0
 	out PortC, temp
 	ldi tim1delay, 25           ; LED Timer init / START
@@ -303,9 +305,9 @@ REPLAY_TIMER:
 REPLAY_TIMER_RST:
 	in tim1delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
-	out OCR1, temp              ;
+	out OCR2, temp              ;
 	ldi temp, 0b00001111        ;
-	out TCCR1, temp             ;
+	out TCCR2, temp             ;
 	ret
 
 
@@ -321,7 +323,7 @@ TIMER1_IT:                    ; -------------------------------
 	breq TIMER1_IT_BR           ;
 	pop temp                    ;
 	out SREG, temp              ;
-	pop                         ;
+	pop temp                    ;
 	reti                        ;
 TIMER1_IT_BR:                 ; -------------------------------
 	lds cnt, PinG               ; Read switch for mode
