@@ -178,7 +178,6 @@ RECORD_MODE_DELAY:            ;     <-------\
 	cpi cnt, 0xFF               ;     ------->/
 	brne RECORD_MODE_DELAY      ; -------------------------------
 	ldi XL, LOW(SRAM_START)     ; init SRAM           --
-	ldi XH, HIGH(SRAM_START)    ; init SRAM           --
 	ldi tim0delay, 25           ; Input Timer init (stopped)
 	ldi temp, 107               ; (11MHz/1024/107/25) ~= 4Hz
 	out OCR0, temp              ;                     ~= 250ms
@@ -215,8 +214,7 @@ REPLAY_MODE_DELAY:            ;     <-------\
 	brne REPLAY_MODE_DELAY      ; -------------------------------
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
-ldi YL, LOW(SRAM_START)         ; init SRAM           --
-ldi YH, HIGH(SRAM_START)        ; init SRAM           --
+	ldi YL, LOW(SRAM_START)         ; init SRAM           --
 	in tim2delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
 	out OCR2, temp              ;
@@ -251,7 +249,7 @@ BTN_IT:                       ; -------------------------------
 	lsr temp                    ;
 	andi temp, 0xF0             ;
 	st X, temp                  ;
-  inc XL                      ; -------------------------------
+  	inc XL                      ; -------------------------------
 	pop temp                    ;
 	out SREG, temp              ;
 	pop temp                    ;
@@ -306,9 +304,12 @@ REPLAY_TIMER:
 	ld temp, Y
 	out PortC, temp
 	cp XL, YL
-	brne REPLAY_TIMER_RST
-	ldi YL, LOW(SRAM_START)     ; RST counter
+	breq REPLAY_TIMER_RST
+	inc YL                      ; növeljük a pointert
+	jmp REPLAY_TIMER_CONT
 REPLAY_TIMER_RST:
+	ldi YL, LOW(SRAM_START)     ; RST counter
+REPLAY_TIMER_CONT:
 	in tim2delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
 	out OCR2, temp              ;
