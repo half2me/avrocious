@@ -151,6 +151,10 @@ M_INIT:
 	ldi temp, 0x00
 	out EIMSK, temp
 
+; Timer inits
+  ldi temp, 0b10000010     ; enable interrupts for timer
+	out TIMSK, temp
+
 	sei 								; glob�lis IT enged�lyezve
 
 
@@ -180,15 +184,13 @@ RECORD_MODE_DELAY:            ;     <-------\
 	out OCR0, temp              ;                     ~= 250ms
 	ldi temp, 0b00001000        ;
 	out TCCR0, temp             ;
-	ldi temp, 0b00000010        ;
-	out TIMSK, temp             ; -------------------------------
+	;                           ; -------------------------------
 	ldi tim2delay, 25           ; LED Timer init / START
 	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
 	out OCR2, temp              ;                     ~= 500ms
 	ldi temp, 0b00001111        ;
 	out TCCR2, temp             ;
-	ldi temp, 0b00000010        ;
-	out TIMSK, temp             ; -------------------------------
+	;                           ; -------------------------------
 	ldi temp, 0xF0              ; Enable Button Interrupts
 	out EIMSK, temp             ;
 	RECORD_MODE_CYCLE:          ; -------------------------------
@@ -220,8 +222,6 @@ ldi YH, HIGH(SRAM_START)        ; init SRAM           --
 	out OCR2, temp              ;
 	ldi temp, 0b00001111        ;
 	out TCCR2, temp             ;
-	ldi temp, 0b00000010        ;
-	out TIMSK, temp             ;
 REPLAY_MODE_CYCLE:            ; -------------------------------
 	lds cnt, PinG               ; Read switch for mode change
 	andi cnt, 0x01              ;
