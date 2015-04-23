@@ -42,7 +42,7 @@
 .def temp      = r16
 .def temp2     = r17
 .def temp1     = r18
-.def sramcnt   = r19
+.def temp3     = r19
 .def temp4     = r20
 .def temp5     = r21
 .def cnt       = r22
@@ -139,8 +139,11 @@ M_INIT:
 	ldi temp, 0b11100111 ; poti config
 	ADCSRA, temp
 
-	; SRAM
-	ldi sramcnt, 0
+; SRAM
+	ldi XL, LOW(SRAM_START) ; X regiszter alsó byte-ja
+	ldi XH, HIGH(SRAM_START) ; felső byte-ja – X a SRAM kezdetére ($0100)
+	ldi YL, LOW(SRAM_START) ; X regiszter alsó byte-ja
+	ldi YH, HIGH(SRAM_START) ; felső byte-ja – X a SRAM kezdetére ($0100)
 
 	sei 								; glob�lis IT enged�lyezve
 
@@ -164,6 +167,8 @@ RECORD_MODE_DELAY:            ;     <-------\
 	inc cnt                     ;     | DELAY |
 	cpi cnt, 0xFF               ;     ------->/
 	brne RECORD_MODE_DELAY      ; -------------------------------
+	ldi XL, LOW(SRAM_START)     ; init SRAM           --
+	ldi XH, HIGH(SRAM_START)    ; init SRAM           --
 	ldi tim0delay, 25           ; Input Timer init (stopped)
 	ldi temp, 107               ; (11MHz/1024/107/25) ~= 4Hz
 	out OCR0, temp              ;                     ~= 250ms
@@ -232,9 +237,13 @@ BTN_IT:                       ; -------------------------------
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
 	in temp, PinE               ; Read buttons and save to SRAM
-	andi PinE, 0xF0             ;
-	 ;
-	;                           ; -------------------------------
+	lsr temp                    ;
+	lsr temp                    ;
+	lsr temp                    ;
+	lsr temp                    ;
+	andi temp, 0xF0             ;
+	st X, temp                  ;
+  inc XL                      ; -------------------------------
 	pop temp                    ;
 	out SREG, temp              ;
 	pop temp                    ;
@@ -276,7 +285,7 @@ LED_TIMER:
 	in temp, PinC
 	not temp
 	andi temp, 0xF0
-	out PortC
+	out PortC, temp
 	ldi tim1delay, 25           ; LED Timer init / START
 	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
 	out OCR0, temp              ;                     ~= 500ms
@@ -286,7 +295,12 @@ LED_TIMER:
 
 ; ********* Replay Timer Interrupt Handler **
 REPLAY_TIMER:
-	; Set LED value from SRAM
+	ld temp, Y
+	out PortC, temp
+	cp XL, YL
+	brne REPLAY_TIMER_RST
+	ldi YL, LOW(SRAM_START)     ; RST counter
+REPLAY_TIMER_RST:
 	in tim1delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
 	out OCR1, temp              ;
