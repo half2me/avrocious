@@ -62,10 +62,10 @@
 	jmp BTN_IT    ; Ext. INT5 Handler (BTN0)
 	jmp BTN_IT    ; Ext. INT6 Handler (BTN1)
 	jmp BTN_IT    ; Ext. INT7 Handler (BTN2)
-	jmp DUMMY_IT	; Timer2 Compare Match Handler
+	jmp TIMER2_IT	; Timer2 Compare Match Handler
 	jmp DUMMY_IT	; Timer2 Overflow Handler
 	jmp DUMMY_IT	; Timer1 Capture Event Handler
-	jmp TIMER1_IT	; Timer1 Compare Match A Handler
+	jmp DUMMY_IT	; Timer1 Compare Match A Handler
 	jmp DUMMY_IT	; Timer1 Compare Match B Handler
 	jmp DUMMY_IT	; Timer1 Overflow Handler
 	jmp INPUT_TIMER_IT	; Timer0 Compare Match Handler
@@ -318,20 +318,20 @@ REPLAY_TIMER_RST:
 
 
 ; -------------------------------------------------------------
-; -                            Timer1 Interrupt Handler       -
+; -                            Timer2 Interrupt Handler       -
 ; -------------------------------------------------------------
-TIMER1_IT:                    ; -------------------------------
+TIMER2_IT:                    ; -------------------------------
 	push temp                   ;
 	in temp, SREG               ;
 	push temp                   ;
 	dec tim2delay               ;
 	cpi tim2delay, 0            ;
-	breq TIMER1_IT_BR           ;
+	breq TIMER2_IT_BR           ;
 	pop temp                    ;
 	out SREG, temp              ;
 	pop temp                    ;
 	reti                        ;
-TIMER1_IT_BR:                 ; -------------------------------
+TIMER2_IT_BR:                 ; -------------------------------
 	lds cnt, PinG               ; Read switch for mode
 	andi cnt, 0x01              ;
 	sbrc cnt, 0                 ;
