@@ -187,7 +187,7 @@ RECORD_MODE_DELAY:            ;     <-------\
 	ldi tim2delay, 25           ; LED Timer init / START
 	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
 	out OCR2, temp              ;                     ~= 500ms
-	ldi temp, 0b00001111        ;
+	ldi temp, 0b00010101       ;
 	out TCCR2, temp             ;
 	;                           ; -------------------------------
 	ldi temp, 0xF0              ; Enable Button Interrupts
@@ -218,7 +218,7 @@ REPLAY_MODE_DELAY:            ;     <-------\
 	in tim2delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
 	out OCR2, temp              ;
-	ldi temp, 0b00001111        ;
+	ldi temp, 0b00010101        ;
 	out TCCR2, temp             ;
 REPLAY_MODE_CYCLE:            ; -------------------------------
 	lds cnt, PinG               ; Read switch for mode change
@@ -238,16 +238,18 @@ BTN_IT:                       ; -------------------------------
 	push temp                   ;
 	in temp, SREG               ;
 	push temp                   ;
+	ldi temp, 0xFF              ; Flag magic :)
+	out EIFR, temp              ;
 	ldi temp, 0b00001111        ; Start the Input Timer
 	out TCCR0, temp             ; -------------------------------
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
 	in temp, PinE               ; Read buttons and save to SRAM
+	com temp                    ;
 	lsr temp                    ;
 	lsr temp                    ;
 	lsr temp                    ;
 	lsr temp                    ;
-	andi temp, 0xF0             ;
 	st X, temp                  ;
   	inc XL                      ; -------------------------------
 	pop temp                    ;
@@ -294,11 +296,7 @@ LED_TIMER:
 	andi temp, 0xF0
 	out PortC, temp
 	ldi tim2delay, 25           ; LED Timer init / START
-	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
-	out OCR2, temp              ;                     ~= 500ms
-	ldi temp, 0b00001111        ;
-	out TCCR2, temp             ;
-	ret
+	jmp TIMER2_LEDRET
 
 ; ********* Replay Timer Interrupt Handler **
 REPLAY_TIMER:
@@ -337,8 +335,9 @@ TIMER2_IT_BR:                 ; -------------------------------
 	lds cnt, PinG               ; Read switch for mode
 	andi cnt, 0x01              ;
 	sbrc cnt, 0                 ;
-	call LED_TIMER              ; INT from RECORD MODE
+	jmp LED_TIMER              ; INT from RECORD MODE
 	call REPLAY_TIMER           ; INT from REPLAY MODE
+TIMER2_LEDRET:
 	pop temp                    ;
 	out SREG, temp              ;
 	pop temp                    ;
