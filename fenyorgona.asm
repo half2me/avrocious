@@ -44,7 +44,7 @@
 .def temp1     = r18
 .def temp3     = r19
 .def temp4     = r20
-.def temp5     = r21
+.def cnt2      = r21
 .def cnt       = r22
 .def tim0delay = r23
 .def tim2delay = r24
@@ -171,12 +171,16 @@ M_LOOP:
 ; -------------------------------------------------------------
 ; -                             RECORD MODE                   -
 ; -------------------------------------------------------------
-RECORD_MODE:                  ; -------------------------------
+RECORD_MODE:                   ; -------------------------------
 	ldi cnt, 0                  ; Give time for bouncing switches
-RECORD_MODE_DELAY:            ;     <-------\
+	ldi cnt2, 0
+RECORD_MODE_DELAY:              ;     <-------\
 	inc cnt                     ;     | DELAY |
 	cpi cnt, 0xFF               ;     ------->/
 	brne RECORD_MODE_DELAY      ; -------------------------------
+	inc cnt2
+	cpi cnt2, 255
+	brne RECORD_MODE_DELAY      ;
 	ldi XL, LOW(SRAM_START)     ; init SRAM           --
 	ldi tim0delay, 25           ; Input Timer init (stopped)
 	ldi temp, 107               ; (11MHz/1024/107/25) ~= 4Hz
@@ -208,10 +212,14 @@ RECORD_MODE_DELAY:            ;     <-------\
 ; -------------------------------------------------------------
 REPLAY_MODE:                  ; -------------------------------
 	ldi cnt, 0                  ; Give time for bouncing switches
+	ldi cnt2, 0
 REPLAY_MODE_DELAY:            ;     <-------\
 	inc cnt                     ;     | DELAY |
 	cpi cnt, 0xFF               ;     ------->/
 	brne REPLAY_MODE_DELAY      ; -------------------------------
+	inc cnt2
+	cpi cnt2, 255
+	brne REPLAY_MODE_DELAY      ;
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
 	ldi temp, 0b00010000        ; STOP RECORD timers
@@ -224,6 +232,8 @@ REPLAY_MODE_DELAY:            ;     <-------\
 	out OCR2, temp              ;
 	ldi temp, 0b00010101        ;
 	out TCCR2, temp             ;
+	ldi temp, 0x00
+	out PortC, temp             ; turn off LEDs
 REPLAY_MODE_CYCLE:            ; -------------------------------
 	lds cnt, PinG               ; Read switch for mode change
 	andi cnt, 0x01              ;
@@ -305,9 +315,9 @@ LED_TIMER:
 ; ********* Replay Timer Interrupt Handler **
 REPLAY_TIMER:
 	ld temp, Y
-	out PortC, temp
 	cp XL, YL
 	breq REPLAY_TIMER_RST
+	out PortC, temp
 	inc YL                      ; növeljük a pointert
 	jmp REPLAY_TIMER_CONT
 REPLAY_TIMER_RST:
