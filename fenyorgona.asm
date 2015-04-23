@@ -133,7 +133,7 @@ M_INIT:
 	ldi temp, 0xF0
 	out PORTE, temp
 	ldi temp, 0x01
-	out PORTG, temp
+	sts PORTG, temp
 
 ; poti beallitasa
 	ldi temp, 0b01100011 ; hasznaljuk a potit
