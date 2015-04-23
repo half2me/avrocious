@@ -47,7 +47,7 @@
 .def temp5     = r21
 .def cnt       = r22
 .def tim0delay = r23
-.def tim1delay = r24
+.def tim2delay = r24
 
 ;***************************************************************
 ;* Reset & Interrupt Vectors
@@ -147,6 +147,10 @@ M_INIT:
 	ldi YL, LOW(SRAM_START) ; X regiszter alsó byte-ja
 	ldi YH, HIGH(SRAM_START) ; felső byte-ja – X a SRAM kezdetére ($0100)
 
+; Disable button interrupts
+	ldi temp, 0x00
+	out EIMSK, temp
+
 	sei 								; glob�lis IT enged�lyezve
 
 
@@ -178,11 +182,11 @@ RECORD_MODE_DELAY:            ;     <-------\
 	out TCCR0, temp             ;
 	ldi temp, 0b00000010        ;
 	out TIMSK, temp             ; -------------------------------
-	ldi tim1delay, 25           ; LED Timer init / START
+	ldi tim2delay, 25           ; LED Timer init / START
 	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
-	out OCR0, temp              ;                     ~= 500ms
+	out OCR2, temp              ;                     ~= 500ms
 	ldi temp, 0b00001111        ;
-	out TCCR0, temp             ;
+	out TCCR2, temp             ;
 	ldi temp, 0b00000010        ;
 	out TIMSK, temp             ; -------------------------------
 	ldi temp, 0xF0              ; Enable Button Interrupts
@@ -209,7 +213,9 @@ REPLAY_MODE_DELAY:            ;     <-------\
 	brne REPLAY_MODE_DELAY      ; -------------------------------
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
-	in tim1delay, ADCH          ; Replay Timer init / START
+ldi YL, LOW(SRAM_START)         ; init SRAM           --
+ldi YH, HIGH(SRAM_START)        ; init SRAM           --
+	in tim2delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
 	out OCR2, temp              ;
 	ldi temp, 0b00001111        ;
@@ -288,11 +294,11 @@ LED_TIMER:
 	com temp
 	andi temp, 0xF0
 	out PortC, temp
-	ldi tim1delay, 25           ; LED Timer init / START
+	ldi tim2delay, 25           ; LED Timer init / START
 	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
-	out OCR0, temp              ;                     ~= 500ms
+	out OCR2, temp              ;                     ~= 500ms
 	ldi temp, 0b00001111        ;
-	out TCCR0, temp             ;
+	out TCCR2, temp             ;
 	ret
 
 ; ********* Replay Timer Interrupt Handler **
@@ -303,7 +309,7 @@ REPLAY_TIMER:
 	brne REPLAY_TIMER_RST
 	ldi YL, LOW(SRAM_START)     ; RST counter
 REPLAY_TIMER_RST:
-	in tim1delay, ADCH          ; Replay Timer init / START
+	in tim2delay, ADCH          ; Replay Timer init / START
 	ldi temp, 214               ;
 	out OCR2, temp              ;
 	ldi temp, 0b00001111        ;
@@ -318,8 +324,8 @@ TIMER1_IT:                    ; -------------------------------
 	push temp                   ;
 	in temp, SREG               ;
 	push temp                   ;
-	dec tim1delay               ;
-	cpi tim1delay, 0            ;
+	dec tim2delay               ;
+	cpi tim2delay, 0            ;
 	breq TIMER1_IT_BR           ;
 	pop temp                    ;
 	out SREG, temp              ;
