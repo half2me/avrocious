@@ -191,7 +191,7 @@ RECORD_MODE_DELAY:              ;     <-------\
 	ldi tim2delay, 25           ; LED Timer init / START
 	ldi temp, 214               ; (11MHz/1024/214/25) ~= 2Hz
 	out OCR2, temp              ;                     ~= 500ms
-	ldi temp, 0b00010101       ;
+	ldi temp, 0b01000101       ;
 	out TCCR2, temp             ;
 	;                           ; -------------------------------
 	ldi temp, 0xF0              ; Enable Button Interrupts
@@ -222,15 +222,15 @@ REPLAY_MODE_DELAY:            ;     <-------\
 	brne REPLAY_MODE_DELAY      ;
 	ldi temp, 0x00              ; Disable Button Interrupts
 	out EIMSK, temp             ; -------------------------------
-	ldi temp, 0b00010000        ; STOP RECORD timers
+	ldi temp, 0b00001000        ; STOP RECORD timers
 	out TCCR2, temp             ;
 	ldi temp, 0b00001000
 	out TCCR0, temp             ; -------------------------------
 	ldi YL, LOW(SRAM_START)         ; init SRAM           --
 	in tim2delay, ADCH          ; Replay Timer init / START
-	ldi temp, 214               ;
+	ldi temp, 20               ;
 	out OCR2, temp              ;
-	ldi temp, 0b00010101        ;
+	ldi temp, 0b00001101        ;
 	out TCCR2, temp             ;
 	ldi temp, 0x00
 	out PortC, temp             ; turn off LEDs
