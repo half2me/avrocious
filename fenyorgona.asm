@@ -278,6 +278,7 @@ INPUT_TIMER_IT_BR:            ; -------------------------------
 	out TCCR0, temp             ;
 	ldi tim0delay, 25           ; Reset counter delay
 	ldi temp, 0xF0              ; Enable Button Interrupts
+	out EIMSK, temp             ;
 	pop temp                    ; -------------------------------
 	out SREG, temp              ;
 	pop temp                    ;
